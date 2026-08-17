@@ -54,6 +54,10 @@ jobs:
         if: steps.check.outputs.exit_code != '0'
         run: |
           set -euo pipefail
+          if [ "$(gh repo view --json hasIssuesEnabled -q .hasIssuesEnabled)" != "true" ]; then
+            echo "Issues are disabled for this repository; skipping the tracking issue."
+            exit 0
+          fi
           gh label create link-check \
             --color FBCA04 \
             --description "Automated dead-link report" 2>/dev/null || true
@@ -90,6 +94,10 @@ jobs:
         if: steps.check.outputs.exit_code == '0'
         run: |
           set -euo pipefail
+          if [ "$(gh repo view --json hasIssuesEnabled -q .hasIssuesEnabled)" != "true" ]; then
+            echo "Issues are disabled for this repository; skipping the tracking issue."
+            exit 0
+          fi
           existing=$(gh issue list --label link-check --state open --json number -q '.[0].number' 2>/dev/null || true)
           if [ -n "${existing:-}" ]; then
             gh issue comment "$existing" --body "Link check passed on $(date -u +%Y-%m-%d) — no dead links remain. Closing automatically."
