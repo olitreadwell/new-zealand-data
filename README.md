@@ -1,6 +1,16 @@
 # New Zealand Data & APIs
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen)](CONTRIBUTING.md)
+
 This is a list of New Zealand Data and available APIs, Pull Requests are very welcome :smile:.
+
+## Browse the site
+
+This list is also published as a searchable website, generated from this
+README by `scripts/build_site.py` and deployed to GitHub Pages by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml). To deploy it,
+enable Pages for the repository (Settings → Pages → Source: GitHub Actions).
 
 ### Central Government & Agencies
 
@@ -163,6 +173,19 @@ This is a list of New Zealand Data and available APIs, Pull Requests are very we
 	- [Web Services API](https://www.psoda.com/download/PsodaWebServicesReference.pdf)
 - ASB
 	- [API](https://developer.asb.co.nz/)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to suggest or add links.
+Pull requests are very welcome :smile:.
+
+## How it's maintained
+
+- Links are checked automatically every week by
+  [`.github/workflows/linkcheck.yml`](.github/workflows/linkcheck.yml); a
+  tracking issue opens on genuine dead links and closes when they recover.
+- The site is rebuilt from this README whenever it changes, so the two never
+  drift apart.
 
 #### Help wanted
 Hi there, if you're interested in helping out I'd love a PR with new links, if you've never created a Pull Request before get in touch and I'll help you out.
