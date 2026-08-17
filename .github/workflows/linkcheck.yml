@@ -34,7 +34,9 @@ jobs:
           url="https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz"
           curl -fsSL "$url" -o lychee.tar.gz
           tar -xzf lychee.tar.gz
-          sudo mv lychee /usr/local/bin/lychee
+          # v0.24+ release archives extract into a named directory.
+          lychee_bin="$(find . -maxdepth 2 -type f -name lychee | head -n 1)"
+          sudo mv "$lychee_bin" /usr/local/bin/lychee
           lychee --version
 
       - name: Run link check
