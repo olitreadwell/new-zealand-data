@@ -122,9 +122,9 @@ enable Pages for the repository (Settings → Pages → Source: GitHub Actions).
   - [CliFlo Climate Database](http://cliflo.niwa.co.nz/)
   - [River Environment Classification (REC) v2.0 (OGC WMS)](http://gs.niwa.co.nz/rec/wms)
   - [River Envrionment Classification (REC) v2.0 (ArcGIS WMTS)](http://gis.niwa.co.nz/arcgis/rest/services/HYDRO/REC_rivers_lakes/MapServer/WMTS?)
-  - [Tide forecasts] (https://developer.niwa.co.nz/docs/tide-api/1/overview)
-  - [UV forecasts] (https://developer.niwa.co.nz/docs/uv-api/1/overview)
-  - [SolarView] (https://developer.niwa.co.nz/docs/solarview-api/1/overview)
+  - [Tide forecasts](https://developer.niwa.co.nz/docs/tide-api/1/overview)
+  - [UV forecasts](https://developer.niwa.co.nz/docs/uv-api/1/overview)
+  - [SolarView](https://developer.niwa.co.nz/docs/solarview-api/1/overview)
 - GNS Science
 	- [GeoNet - Earthquake Data](http://www.geonet.org.nz/resources/earthquake/quake-web-services.html)
 - Landcare Research | Manaaki Whenua
