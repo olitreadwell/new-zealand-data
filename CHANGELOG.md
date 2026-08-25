@@ -30,6 +30,16 @@ which is dormant since March 2023. Format based on
   upstream, so the Pages site links back to the repo that builds it.
 - README documents the maintenance tooling under "How it's maintained".
 
+### Fixed
+
+- Site link counter now counts entries, not containers, so it matches the
+  real total.
+- Doc sections (Browse the site, Contributing, How it's maintained) no longer
+  count as categories and hide during search.
+- Theme applies before first paint, so no light-mode flash for dark-mode
+  users.
+- Markdown links in notes no longer double-escape `&` in URLs.
+
 ## [0.1.0] - 2026-08-25
 
 Fork maintenance baseline, also proposed upstream in

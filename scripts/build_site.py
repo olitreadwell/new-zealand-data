@@ -48,7 +48,13 @@ DESC_SEP_RE = re.compile(r"^[-–—:]\s*")
 
 # Sections that are meta content, rendered at the bottom of the page rather
 # than inside the category they appear under in the README.
-META_SECTIONS = {"Help wanted", "References and Attributions"}
+META_SECTIONS = {
+    "Browse the site",
+    "Contributing",
+    "How it's maintained",
+    "Help wanted",
+    "References and Attributions",
+}
 
 
 def esc(text: str) -> str:
@@ -64,11 +70,17 @@ def slugify(name: str) -> str:
 
 def linkify(text: str) -> str:
     """Turn markdown links in plain text into HTML anchors."""
-    return LINK_RE.sub(
-        lambda m: f'<a href="{esc(m.group(2))}" target="_blank" rel="noopener">'
-        f"{esc(m.group(1))}</a>",
-        text,
-    )
+    parts: list[str] = []
+    last = 0
+    for m in LINK_RE.finditer(text):
+        parts.append(esc(text[last : m.start()]))
+        parts.append(
+            f'<a href="{esc(m.group(2))}" target="_blank" rel="noopener">'
+            f"{esc(m.group(1))}</a>"
+        )
+        last = m.end()
+    parts.append(esc(text[last:]))
+    return "".join(parts)
 
 
 def parse_bullet(line: str) -> dict:
@@ -120,7 +132,12 @@ def parse_readme(text: str) -> dict:
             current_sub = None
         elif line.startswith("## "):
             name = line[3:].strip()
-            current = {"name": name, "meta": False, "subs": [], "items": []}
+            current = {
+                "name": name,
+                "meta": name in META_SECTIONS,
+                "subs": [],
+                "items": [],
+            }
             sections.append(current)
             current_sub = None
         elif line.startswith("#### "):
@@ -175,7 +192,7 @@ def render_entry(item: dict) -> str:
 
 def render_text(item: dict) -> str:
     """Render a plain-text item, linkifying any markdown links."""
-    return f'<p class="note">{linkify(esc(item["text"]))}</p>'
+    return f'<p class="note">{linkify(item["text"])}</p>'
 
 
 def render_items(items: list[dict]) -> str:
@@ -496,6 +513,16 @@ h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--accent); }
   .item, .group { break-inside: avoid; }
 }
 </style>
+<script>
+// Apply the saved or system theme before first paint to avoid a light flash.
+try {
+  const saved = localStorage.getItem("theme");
+  const dark = saved
+    ? saved === "dark"
+    : window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+} catch (e) {}
+</script>
 </head>
 <body>
 <div id="progress" class="scroll-progress" aria-hidden="true"></div>
@@ -550,14 +577,14 @@ sections.forEach((section) => {
   a.textContent = section.dataset.section;
   const span = document.createElement("span");
   span.className = "toc-count";
-  span.textContent = section.querySelectorAll(".item, .group").length;
+  span.textContent = section.querySelectorAll(".entry").length;
   a.appendChild(span);
   li.appendChild(a);
   tocList.appendChild(li);
 });
 
-const total = document.querySelectorAll(".item, .group").length;
-count.textContent = total + " links";
+const totalLinks = document.querySelectorAll(".entry").length;
+count.textContent = totalLinks + " links";
 
 function update() {
   const q = search.value.trim().toLowerCase();
@@ -571,14 +598,16 @@ function update() {
     section.querySelectorAll("[data-search]").forEach((el) => {
       const hit = !q || el.dataset.search.includes(q);
       el.hidden = !hit;
-      if (hit) any = true;
+      if (hit) {
+        any = true;
+        visible += el.querySelectorAll(".entry").length;
+      }
     });
     section.hidden = !any;
-    if (any) {
-      visible += section.querySelectorAll("[data-search]:not([hidden])").length;
-    }
   });
-  count.textContent = q ? visible + " of " + total + " links match" : total + " links";
+  count.textContent = q
+    ? visible + " of " + totalLinks + " links match"
+    : totalLinks + " links";
 }
 
 search.addEventListener("input", update);
