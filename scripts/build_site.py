@@ -39,6 +39,9 @@ OUT_404 = OUT_DIR / "404.html"
 
 # Where the site is published. Change this when deploying elsewhere.
 SITE_URL = "https://olitreadwell.github.io/new-zealand-data/"
+# Where the README that generates this site lives.
+GITHUB_REPO_URL = "https://github.com/olitreadwell/new-zealand-data"
+GITHUB_README_URL = "https://github.com/olitreadwell/new-zealand-data/blob/main/README.md"
 
 LINK_RE = re.compile(r"\[([^\]]+)\] ?\(([^)]+)\)")
 DESC_SEP_RE = re.compile(r"^[-–—:]\s*")
@@ -507,7 +510,7 @@ h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--accent); }
       <input id="search" type="search" placeholder="Search datasets and APIs…"
         autocomplete="off" aria-label="Search datasets and APIs">
       <button id="theme" class="theme-btn" aria-label="Toggle dark mode">Dark</button>
-      <a class="btn" href="https://github.com/WikiNewZealand/new-zealand-data"
+      <a class="btn" href="__GITHUB_REPO_URL__"
         target="_blank" rel="noopener">View on GitHub</a>
     </div>
   </div>
@@ -522,11 +525,11 @@ h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--accent); }
 __SECTIONS__
     <footer class="site-footer">
       <p>Generated from
-        <a href="https://github.com/WikiNewZealand/new-zealand-data/blob/master/README.md">README.md</a>
+        <a href="__GITHUB_README_URL__">README.md</a>
         by <code>scripts/build_site.py</code>. Machine-readable copies:
         <a href="data.json">data.json</a>, <a href="data.csv">data.csv</a>.
         Found a dead link or a missing dataset? Open an issue or pull request
-        on <a href="https://github.com/WikiNewZealand/new-zealand-data">GitHub</a>.</p>
+        on <a href="__GITHUB_REPO_URL__">GitHub</a>.</p>
     </footer>
   </div>
 </main>
@@ -669,6 +672,8 @@ def main() -> int:
         PAGE_TEMPLATE.replace("__TITLE__", esc(doc["title"]))
         .replace("__TAGLINE__", esc(doc["tagline"]))
         .replace("__SITE_URL__", esc(SITE_URL.rstrip("/")))
+        .replace("__GITHUB_REPO_URL__", esc(GITHUB_REPO_URL))
+        .replace("__GITHUB_README_URL__", esc(GITHUB_README_URL))
         .replace("__STATS__", esc(stats))
         .replace("__SECTIONS__", sections_html)
     )
