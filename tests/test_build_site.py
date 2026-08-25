@@ -41,7 +41,7 @@ def test_parse_bullet_nested_entry_has_level_one():
 
 def test_parse_bullet_plain_text():
     item = parse_bullet("- a note without a link")
-    assert item == {"type": "text", "text": "a note without a link", "level": 0}
+    assert item == {"type": "text", "text": "a note without a link", "level": 0, "bullet": True}
 
 
 def test_parse_readme_structure():

@@ -100,9 +100,14 @@ def linkify(text: str) -> str:
     last = 0
     for m in LINK_RE.finditer(text):
         parts.append(esc(text[last : m.start()]))
+        name = m.group(1).strip().replace("`", "")
+        url = m.group(2).strip()
+        if not re.match(r"^[a-z][a-z0-9+.-]*://", url) and not url.startswith("#"):
+            rel = url[2:] if url.startswith("./") else url[1:] if url.startswith("/") else url
+            url = f"{GITHUB_REPO_URL}/blob/main/{rel}"
         parts.append(
-            f'<a href="{esc(m.group(2))}" target="_blank" rel="noopener">'
-            f"{esc(m.group(1))}</a>"
+            f'<a href="{esc(url)}" target="_blank" rel="noopener">'
+            f"{esc(name)}</a>"
         )
         last = m.end()
     parts.append(esc(text[last:]))
@@ -129,7 +134,7 @@ def parse_bullet(line: str) -> dict:
                 "desc": rest or None,
                 "level": level,
             }
-    return {"type": "text", "text": body.strip(), "level": level}
+    return {"type": "text", "text": body.strip(), "level": level, "bullet": True}
 
 
 def parse_readme(text: str) -> dict:
@@ -182,7 +187,12 @@ def parse_readme(text: str) -> dict:
             elif current is not None:
                 current["items"].append(item)
         elif current is not None:
-            current["items"].append({"type": "text", "text": line.strip(), "level": 0})
+            text = line.strip()
+            items = current["items"]
+            if items and items[-1]["type"] == "text":
+                items[-1]["text"] += " " + text
+            else:
+                items.append({"type": "text", "text": text, "level": 0})
         elif not tagline:
             tagline = line.strip()
 
