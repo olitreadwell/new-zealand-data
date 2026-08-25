@@ -1,9 +1,15 @@
 name: Deploy Pages site
 
 # Builds a static site from README.md with scripts/build_site.py and deploys
-# it to GitHub Pages. This runs only once Pages is enabled for the repository
-# (Settings → Pages → Build and deployment → Source: GitHub Actions), which is
-# an account-level step the repo owner must do once.
+# it to GitHub Pages. Pushes to main deploy the production site; pull
+# requests deploy a temporary preview with a unique URL and post that link as
+# a comment on the PR. This runs only once Pages is enabled for the
+# repository (Settings → Pages → Build and deployment → Source: GitHub
+# Actions), which is an account-level step the repo owner must do once.
+#
+# Previews need the id-token: write permission, which pull requests from
+# forks do not get, so previews only deploy for PRs from branches in this
+# repository.
 
 on:
   push:
@@ -12,9 +18,16 @@ on:
       - "README.md"
       - "scripts/build_site.py"
       - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "README.md"
+      - "scripts/build_site.py"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 # Allow one concurrent deployment; let an in-progress run finish.
+# Preview deployments use their own per-pull-request group and cancel
+# superseded runs, so only the newest preview of a PR deploys.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -23,6 +36,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  issues: write
 
 jobs:
   build:
@@ -48,6 +62,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -56,3 +71,62 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+  preview:
+    name: Deploy pull request preview
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy preview
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Comment preview link on pull request
+        uses: actions/github-script@v8
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        with:
+          script: |
+            const pageUrl = process.env.PAGE_URL
+            const marker = '<!-- pr-preview-deploy -->'
+            const body = [
+              marker,
+              '## Pages preview',
+              '',
+              'This pull request is deployed to GitHub Pages for review:',
+              '',
+              pageUrl,
+              '',
+              'The preview is temporary and does not affect the production site.',
+            ].join('\n')
+            const { owner, repo } = context.repo
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+            })
+            const existing = comments.find(
+              (comment) => comment.body && comment.body.includes(marker),
+            )
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: context.issue.number,
+                body,
+              })
+            }

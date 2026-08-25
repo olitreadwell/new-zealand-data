@@ -21,6 +21,13 @@ README by `scripts/build_site.py` and deployed to GitHub Pages by
 [`.github/workflows/pages.yml`](.github/workflows/pages.yml). To deploy it,
 enable Pages for the repository (Settings → Pages → Source: GitHub Actions).
 
+Every pull request that touches the README or the site build also deploys a
+temporary preview with its own URL and posts that link as a comment on the
+PR, so changes can be reviewed before they reach the production site.
+Previews only deploy for PRs from branches in this repository — PRs from
+forks do not get one, because GitHub does not grant fork PRs the token
+permissions Pages previews need.
+
 ### Central Government & Agencies
 
 - Statistics New Zealand

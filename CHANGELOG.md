@@ -24,6 +24,8 @@ which is dormant since March 2023. Format based on
 - API probes: `.github/workflows/api-probes.yml` runs `scripts/probe_apis.py`
   weekly, GETs the API-ish endpoints listed in the README, and uploads
   `api-probe-report.json` as an artifact.
+- Pull request previews: PRs that touch the README or the site build deploy
+  a temporary GitHub Pages preview and post its URL as a comment on the PR.
 - Wayback Machine archiving: `.github/workflows/archive.yml` runs
   `scripts/archive_links.py` weekly, dedupes against the CDX index, and
   uploads `wayback-report.json` as an artifact.
