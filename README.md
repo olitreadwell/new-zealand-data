@@ -2,6 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen)](CONTRIBUTING.md)
+[![CI](https://github.com/olitreadwell/new-zealand-data/actions/workflows/ci.yml/badge.svg)](https://github.com/olitreadwell/new-zealand-data/actions/workflows/ci.yml)
+[![Link check](https://github.com/olitreadwell/new-zealand-data/actions/workflows/linkcheck.yml/badge.svg)](https://github.com/olitreadwell/new-zealand-data/actions/workflows/linkcheck.yml)
+[![Archive](https://github.com/olitreadwell/new-zealand-data/actions/workflows/archive.yml/badge.svg)](https://github.com/olitreadwell/new-zealand-data/actions/workflows/archive.yml)
+[![Site](https://github.com/olitreadwell/new-zealand-data/actions/workflows/pages.yml/badge.svg)](https://github.com/olitreadwell/new-zealand-data/actions/workflows/pages.yml)
 
 This is a list of New Zealand Data and available APIs, Pull Requests are very welcome :smile:.
 

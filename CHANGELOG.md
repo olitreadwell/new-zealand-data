@@ -16,6 +16,11 @@ which is dormant since March 2023. Format based on
   failed check instead of waiting for the weekly run.
 - `.lycheeignore` keeps known false positives (mailto, localhost, example.com)
   out of link-check reports.
+- Broken-link issue form for structured dead-link reports.
+- README workflow status badges.
+- `Makefile` with a single `make check` entry point (validate, build, link
+  check, workflow lint) and an actionlint job in CI.
+- Dependabot groups GitHub Actions minor/patch updates into one PR.
 - `FORK-NOTES.md`: why the fork exists, upstream status, governance stance.
 - `CHANGELOG.md`.
 

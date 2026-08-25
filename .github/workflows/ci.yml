@@ -34,3 +34,14 @@ jobs:
 
       - name: Build site
         run: python3 scripts/build_site.py
+
+  lint-actions:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v5
+
+      - name: Run actionlint
+        run: docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:latest

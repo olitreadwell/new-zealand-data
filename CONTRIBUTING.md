@@ -36,7 +36,19 @@ If you have [lychee](https://github.com/lycheeverse/lychee) installed:
 lychee README.md
 ```
 
-### 4. Open a pull request
+### 4. Run the full check suite
+
+If you have [lychee](https://github.com/lycheeverse/lychee) and
+[actionlint](https://github.com/rhysd/actionlint) installed:
+
+```bash
+make check
+```
+
+`make check` validates the README structure, rebuilds the site, checks every
+link, and lints the workflows. This is the same set of checks CI runs.
+
+### 5. Open a pull request
 
 Include what you verified and how in the PR description.
 
