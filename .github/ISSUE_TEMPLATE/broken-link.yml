@@ -1,0 +1,57 @@
+name: Report a broken link
+description: Report a dead or broken link in the list.
+title: "[Broken link] "
+labels: ["broken link", "link check"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please only report links you can confirm are
+        broken right now. Bot-blocked pages (403 / 999) are usually fine, so
+        only report genuine 404s, DNS failures, and refused connections.
+
+  - type: input
+    id: url
+    attributes:
+      label: Link
+      description: The exact URL from the README that is broken.
+      placeholder: "https://example.govt.nz"
+    validations:
+      required: true
+
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: Which README section it appears in.
+      placeholder: "e.g. Central Government & Agencies"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: error
+    attributes:
+      label: What happens?
+      options:
+        - 404 Not Found
+        - DNS failure (domain not found)
+        - Connection refused / timeout
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything useful, like a replacement URL if you know one.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: I can confirm this link is broken right now.
+          required: true
