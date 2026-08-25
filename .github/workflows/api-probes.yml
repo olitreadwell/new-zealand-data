@@ -1,0 +1,40 @@
+name: Weekly API probes
+
+# GETs the API-ish endpoints listed in README.md once a week and records
+# status, content-type, and latency for each. Hard failures (5xx, DNS,
+# timeout) fail the job; bot-blocked responses (403 / 999) are recorded but
+# not treated as failures. The per-URL report is uploaded as a workflow
+# artifact; nothing is committed back to the repo.
+
+on:
+  schedule:
+    # Tuesdays 06:00 UTC — after the Sunday link check and Monday archive.
+    - cron: "0 6 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe API endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Probe API endpoints
+        run: python3 scripts/probe_apis.py
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-probe-report
+          path: api-probe-report.json
