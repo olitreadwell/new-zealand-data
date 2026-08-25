@@ -5,6 +5,11 @@
 
 This is a list of New Zealand Data and available APIs, Pull Requests are very welcome :smile:.
 
+Links are checked weekly for breakage (see
+[`.github/workflows/linkcheck.yml`](.github/workflows/linkcheck.yml)) and
+archived to the Internet Archive Wayback Machine so content survives link rot
+(see [`.github/workflows/archive.yml`](.github/workflows/archive.yml)).
+
 ## Browse the site
 
 This list is also published as a searchable website, generated from this
