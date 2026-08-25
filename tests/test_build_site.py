@@ -119,12 +119,18 @@ def test_flatten_includes_top_level_entries_only():
             "url": "https://a.example/alpha",
             "description": "first entry",
             "category": "Category A",
+            "license": None,
+            "format": None,
+            "update_frequency": None,
         },
         {
             "name": "Gamma",
             "url": "https://c.example/gamma",
             "description": "",
             "category": "Category B",
+            "license": None,
+            "format": None,
+            "update_frequency": None,
         },
     ]
 """Tests for scripts/build_site.py."""
