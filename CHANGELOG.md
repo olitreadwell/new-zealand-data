@@ -14,6 +14,13 @@ which is dormant since March 2023. Format based on
   `scripts/validate_readme.py`, and URL collection in
   `scripts/archive_links.py`. `make test` runs it, `make check` includes it,
   and a CI job runs it on every pull request.
+- Site exports: Atom feed `site/feed.xml` with the latest 20 entries and
+  RFC 3339 timestamps, per-entry Dataset JSON-LD in `index.html`, and
+  optional `license`/`format`/`update_frequency` fields in `data.json` /
+  `data.csv` (null by default).
+- Wayback Machine fallback links on entries that could not be archived,
+  when `wayback-report.json` is present.
+- pytest suite in `tests/` covering the site builder.
 - Wayback Machine archiving: `.github/workflows/archive.yml` runs
   `scripts/archive_links.py` weekly, dedupes against the CDX index, and
   uploads `wayback-report.json` as an artifact.

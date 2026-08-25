@@ -8,11 +8,17 @@ dependencies.
 
 Outputs:
     site/index.html      - the browsable site
-    site/data.json       - structured copy of the list
-    site/data.csv        - flattened copy of the list
+    site/data.json       - structured copy of the list (optional
+                           license/format/update_frequency fields)
+    site/data.csv        - flattened copy of the list (same optional fields)
+    site/feed.xml        - Atom feed with the latest 20 entries
     site/sitemap.xml     - single-URL sitemap for the site
     site/opensearch.xml  - search plugin (URLs like ?q=linz pre-filter)
     site/404.html        - friendly not-found page
+
+When wayback-report.json (written by scripts/archive_links.py) is present,
+entries that could not be archived get a Wayback Machine fallback link so the
+content stays reachable even if the original source disappears.
 
 Usage:
     python3 scripts/build_site.py
@@ -24,7 +30,7 @@ import html
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,9 +39,19 @@ OUT_DIR = ROOT / "site"
 OUT_HTML = OUT_DIR / "index.html"
 OUT_JSON = OUT_DIR / "data.json"
 OUT_CSV = OUT_DIR / "data.csv"
+OUT_FEED = OUT_DIR / "feed.xml"
 OUT_SITEMAP = OUT_DIR / "sitemap.xml"
 OUT_OPENSEARCH = OUT_DIR / "opensearch.xml"
 OUT_404 = OUT_DIR / "404.html"
+
+# Report written by scripts/archive_links.py (uploaded as a workflow
+# artifact, not committed). Its presence switches on Wayback fallback links.
+WAYBACK_REPORT_PATH = ROOT / "wayback-report.json"
+# Prefix for a Wayback Machine "latest snapshot" redirect.
+WAYBACK_FALLBACK_PREFIX = "https://web.archive.org/web/2/"
+
+# How many entries the Atom feed carries.
+FEED_LIMIT = 20
 
 # Where the site is published. Change this when deploying elsewhere.
 SITE_URL = "https://olitreadwell.github.io/new-zealand-data/"
@@ -62,10 +78,20 @@ def esc(text: str) -> str:
     return html.escape(text, quote=True)
 
 
+def xml_esc(text: str) -> str:
+    """Escape text for safe embedding in XML."""
+    return html.escape(text, quote=True)
+
+
 def slugify(name: str) -> str:
     """Turn a heading into a URL fragment id."""
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return slug or "section"
+
+
+def strip_fragment(url: str) -> str:
+    """Drop a URL fragment so entry and wayback-report URLs can be matched."""
+    return url.split("#", 1)[0].strip()
 
 
 def linkify(text: str) -> str:
@@ -176,17 +202,80 @@ def collect_search(items: list[dict]) -> list[str]:
     return parts
 
 
-def render_entry(item: dict) -> str:
-    """Render a single entry line."""
+def entry_is_dead(record: dict) -> bool:
+    """True when the wayback report found no snapshot and could not save one."""
+    return not record.get("saved") and not record.get("snapshot_exists")
+
+
+def load_wayback_report(path: Path = WAYBACK_REPORT_PATH) -> dict[str, dict]:
+    """Load wayback-report.json as {url: record}; {} when absent or invalid."""
+    if not path.exists():
+        return {}
+    try:
+        records = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(records, list):
+        return {}
+    by_url: dict[str, dict] = {}
+    for record in records:
+        if isinstance(record, dict) and isinstance(record.get("url"), str):
+            by_url[strip_fragment(record["url"])] = record
+    return by_url
+
+
+def wayback_fallback_url(url: str) -> str:
+    """Latest-snapshot Wayback URL for an entry."""
+    return WAYBACK_FALLBACK_PREFIX + url
+
+
+def entry_json_ld(item: dict) -> dict:
+    """Schema.org Dataset JSON-LD for one entry."""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Dataset",
+        "name": item["name"],
+        "url": item["url"],
+    }
+    if item.get("desc"):
+        data["description"] = item["desc"]
+    if item.get("license"):
+        data["license"] = item["license"]
+    if item.get("format"):
+        data["distribution"] = {
+            "@type": "DataDownload",
+            "contentUrl": item["url"],
+            "encodingFormat": item["format"],
+        }
+    return data
+
+
+def render_entry_json_ld(item: dict) -> str:
+    """Render an entry's Dataset JSON-LD as a safe script tag."""
+    body = json.dumps(entry_json_ld(item), ensure_ascii=False).replace("</", "<\\/")
+    return f'<script type="application/ld+json">{body}</script>'
+
+
+def render_entry(item: dict, dead_urls: set[str] | None = None) -> str:
+    """Render a single entry line plus its JSON-LD."""
+    if dead_urls is None:
+        dead_urls = set()
     indent = item["level"] * 18
     style = f' style="padding-left:{indent}px"' if indent else ""
     name = esc(item["name"])
     url = esc(item["url"])
+    wayback = ""
+    if strip_fragment(item["url"]) in dead_urls:
+        wayback = (
+            f' <a class="wayback" href="{esc(wayback_fallback_url(item["url"]))}"'
+            ' title="View archived copy" target="_blank" rel="noopener">Wayback</a>'
+        )
     desc = f'<span class="desc">{esc(item["desc"])}</span>' if item["desc"] else ""
     return (
         f'<div class="entry"{style}>'
         f'<a class="link" href="{url}" target="_blank" rel="noopener">{name}</a>'
-        f"{desc}</div>"
+        f"{wayback}{desc}</div>\n"
+        f"{render_entry_json_ld(item)}"
     )
 
 
@@ -195,8 +284,10 @@ def render_text(item: dict) -> str:
     return f'<p class="note">{linkify(item["text"])}</p>'
 
 
-def render_items(items: list[dict]) -> str:
+def render_items(items: list[dict], dead_urls: set[str] | None = None) -> str:
     """Render top-level items with their nested children."""
+    if dead_urls is None:
+        dead_urls = set()
     out: list[str] = []
     i = 0
     while i < len(items):
@@ -213,30 +304,32 @@ def render_items(items: list[dict]) -> str:
                 out.append(f'<div class="group" data-search="{esc(search)}">')
                 out.append(f'<h4 class="group-name">{esc(item["text"])}</h4>')
                 out.append('<div class="sub">')
-                out.extend(render_entry(child) for child in children)
+                out.extend(render_entry(child, dead_urls) for child in children)
                 out.append("</div></div>")
             else:
                 out.append(render_text(item))
         else:
             search = " ".join(collect_search([item] + children)).lower()
             out.append(f'<div class="item" data-search="{esc(search)}">')
-            out.append(render_entry(item))
+            out.append(render_entry(item, dead_urls))
             if children:
                 out.append('<div class="sub">')
-                out.extend(render_entry(child) for child in children)
+                out.extend(render_entry(child, dead_urls) for child in children)
                 out.append("</div>")
             out.append("</div>")
         i = j
     return "\n".join(out)
 
 
-def render_section(section: dict) -> str:
+def render_section(section: dict, dead_urls: set[str] | None = None) -> str:
     """Render one section of the page."""
-    body = render_items(section["items"])
+    if dead_urls is None:
+        dead_urls = set()
+    body = render_items(section["items"], dead_urls)
     for sub in section["subs"]:
         body += (
             f'\n<h3 id="{slugify(sub["name"])}">{esc(sub["name"])}</h3>\n'
-            + render_items(sub["items"])
+            + render_items(sub["items"], dead_urls)
         )
     static = " data-static" if section["meta"] else ""
     return (
@@ -258,13 +351,18 @@ def flatten(doc: dict) -> list[dict]:
                         "url": item["url"],
                         "description": item["desc"] or "",
                         "category": section["name"],
+                        "license": item.get("license"),
+                        "format": item.get("format"),
+                        "update_frequency": item.get("update_frequency"),
                     }
                 )
     return rows
 
 
-def csv_encode(value: str) -> str:
+def csv_encode(value: str | None) -> str:
     """Quote a CSV field when needed."""
+    if value is None:
+        return ""
     if any(ch in value for ch in '",\n\r'):
         return '"' + value.replace('"', '""') + '"'
     return value
@@ -272,7 +370,15 @@ def csv_encode(value: str) -> str:
 
 def render_csv(rows: list[dict]) -> str:
     """Render the list as CSV."""
-    header = ["name", "url", "description", "category"]
+    header = [
+        "name",
+        "url",
+        "description",
+        "category",
+        "license",
+        "format",
+        "update_frequency",
+    ]
     lines = [",".join(header)]
     for row in rows:
         lines.append(",".join(csv_encode(row[k]) for k in header))
@@ -287,12 +393,55 @@ def to_json(doc: dict) -> dict:
         for item in section["items"]:
             if item["type"] == "entry":
                 items.append(
-                    {"name": item["name"], "url": item["url"], "description": item["desc"]}
+                    {
+                        "name": item["name"],
+                        "url": item["url"],
+                        "description": item["desc"],
+                        "license": item.get("license"),
+                        "format": item.get("format"),
+                        "update_frequency": item.get("update_frequency"),
+                    }
                 )
             else:
                 items.append({"text": item["text"]})
         sections.append({"name": section["name"], "items": items})
     return {"title": doc["title"], "tagline": doc["tagline"], "sections": sections}
+
+
+def rfc3339(dt: datetime) -> str:
+    """Format a datetime as an RFC 3339 UTC timestamp."""
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def render_feed(doc: dict, rows: list[dict], updated: str) -> str:
+    """Render an Atom feed with the latest FEED_LIMIT entries."""
+    feed_url = SITE_URL.rstrip("/") + "/"
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<feed xmlns="http://www.w3.org/2005/Atom">',
+        f"  <title>{xml_esc(doc['title'])}</title>",
+        f'  <link href="{xml_esc(feed_url)}"/>',
+        f'  <link rel="self" href="{xml_esc(feed_url + "feed.xml")}"/>',
+        f"  <id>{xml_esc(feed_url)}</id>",
+        f"  <updated>{updated}</updated>",
+        "  <generator>scripts/build_site.py</generator>",
+    ]
+    for row in rows[:FEED_LIMIT]:
+        lines.extend(
+            [
+                "  <entry>",
+                f"    <title>{xml_esc(row['name'])}</title>",
+                f'    <link href="{xml_esc(row["url"])}"/>',
+                f"    <id>{xml_esc(row['url'])}</id>",
+                f"    <updated>{updated}</updated>",
+                f'    <category term="{xml_esc(row["category"])}"/>',
+            ]
+        )
+        if row["description"]:
+            lines.append(f"    <summary>{xml_esc(row['description'])}</summary>")
+        lines.append("  </entry>")
+    lines.append("</feed>")
+    return "\n".join(lines) + "\n"
 
 
 PAGE_TEMPLATE = """<!DOCTYPE html>
@@ -304,6 +453,7 @@ PAGE_TEMPLATE = """<!DOCTYPE html>
 <meta name="description" content="__TAGLINE__">
 <meta name="color-scheme" content="light dark">
 <link rel="search" type="application/opensearchdescription+xml" title="__TITLE__" href="opensearch.xml">
+<link rel="alternate" type="application/atom+xml" title="__TITLE__" href="feed.xml">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -468,6 +618,14 @@ h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--accent); }
 .entry .link:hover { text-decoration: underline; }
 .entry .desc { color: var(--muted); font-size: 0.9rem; }
 .entry .desc::before { content: "\\2013  "; color: var(--border); }
+.entry .wayback {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-left: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.entry .wayback:hover { color: var(--accent); text-decoration: underline; }
 .note {
   color: var(--muted);
   font-size: 0.92rem;
@@ -554,7 +712,8 @@ __SECTIONS__
       <p>Generated from
         <a href="__GITHUB_README_URL__">README.md</a>
         by <code>scripts/build_site.py</code>. Machine-readable copies:
-        <a href="data.json">data.json</a>, <a href="data.csv">data.csv</a>.
+        <a href="data.json">data.json</a>, <a href="data.csv">data.csv</a>,
+        <a href="feed.xml">feed.xml</a>.
         Found a dead link or a missing dataset? Open an issue or pull request
         on <a href="__GITHUB_REPO_URL__">GitHub</a>.</p>
     </footer>
@@ -694,7 +853,11 @@ def main() -> int:
         return 1
     doc = parse_readme(README_PATH.read_text(encoding="utf-8"))
     rows = flatten(doc)
-    sections_html = "\n".join(render_section(s) for s in doc["sections"])
+    wayback_report = load_wayback_report(WAYBACK_REPORT_PATH)
+    dead_urls = {
+        url for url, record in wayback_report.items() if entry_is_dead(record)
+    }
+    sections_html = "\n".join(render_section(s, dead_urls) for s in doc["sections"])
     categories = [s["name"] for s in doc["sections"] if not s["meta"]]
     stats = f"{len(rows)} links across {len(categories)} categories"
     page = (
@@ -713,6 +876,8 @@ def main() -> int:
         encoding="utf-8",
     )
     OUT_CSV.write_text(render_csv(rows), encoding="utf-8")
+    updated = rfc3339(datetime.now(timezone.utc))
+    OUT_FEED.write_text(render_feed(doc, rows, updated), encoding="utf-8")
     OUT_SITEMAP.write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -735,8 +900,12 @@ def main() -> int:
         NOT_FOUND_TEMPLATE.replace("__TITLE__", esc(doc["title"])),
         encoding="utf-8",
     )
+    try:
+        out_rel = OUT_DIR.relative_to(ROOT)
+    except ValueError:
+        out_rel = OUT_DIR
     print(
-        f"wrote {len(list(OUT_DIR.iterdir()))} files to {OUT_DIR.relative_to(ROOT)} "
+        f"wrote {len(list(OUT_DIR.iterdir()))} files to {out_rel} "
         f"({len(categories)} categories, {len(rows)} links)"
     )
     return 0
