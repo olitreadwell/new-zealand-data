@@ -39,6 +39,9 @@ OUT_404 = OUT_DIR / "404.html"
 
 # Where the site is published. Change this when deploying elsewhere.
 SITE_URL = "https://olitreadwell.github.io/new-zealand-data/"
+# Where the README that generates this site lives.
+GITHUB_REPO_URL = "https://github.com/olitreadwell/new-zealand-data"
+GITHUB_README_URL = "https://github.com/olitreadwell/new-zealand-data/blob/main/README.md"
 
 LINK_RE = re.compile(r"\[([^\]]+)\] ?\(([^)]+)\)")
 DESC_SEP_RE = re.compile(r"^[-–—:]\s*")
@@ -61,11 +64,22 @@ def slugify(name: str) -> str:
 
 def linkify(text: str) -> str:
     """Turn markdown links in plain text into HTML anchors."""
-    return LINK_RE.sub(
-        lambda m: f'<a href="{esc(m.group(2))}" target="_blank" rel="noopener">'
-        f"{esc(m.group(1))}</a>",
-        text,
-    )
+    parts: list[str] = []
+    last = 0
+    for m in LINK_RE.finditer(text):
+        parts.append(esc(text[last : m.start()]))
+        name = m.group(1).strip().replace("`", "")
+        url = m.group(2).strip()
+        if not re.match(r"^[a-z][a-z0-9+.-]*://", url) and not url.startswith("#"):
+            rel = url[2:] if url.startswith("./") else url[1:] if url.startswith("/") else url
+            url = f"{GITHUB_REPO_URL}/blob/main/{rel}"
+        parts.append(
+            f'<a href="{esc(url)}" target="_blank" rel="noopener">'
+            f"{esc(name)}</a>"
+        )
+        last = m.end()
+    parts.append(esc(text[last:]))
+    return "".join(parts)
 
 
 def parse_bullet(line: str) -> dict:
@@ -88,7 +102,7 @@ def parse_bullet(line: str) -> dict:
                 "desc": rest or None,
                 "level": level,
             }
-    return {"type": "text", "text": body.strip(), "level": level}
+    return {"type": "text", "text": body.strip(), "level": level, "bullet": True}
 
 
 def parse_readme(text: str) -> dict:
@@ -136,7 +150,12 @@ def parse_readme(text: str) -> dict:
             elif current is not None:
                 current["items"].append(item)
         elif current is not None:
-            current["items"].append({"type": "text", "text": line.strip(), "level": 0})
+            text = line.strip()
+            items = current["items"]
+            if items and items[-1]["type"] == "text":
+                items[-1]["text"] += " " + text
+            else:
+                items.append({"type": "text", "text": text, "level": 0})
         elif not tagline:
             tagline = line.strip()
 
@@ -172,7 +191,7 @@ def render_entry(item: dict) -> str:
 
 def render_text(item: dict) -> str:
     """Render a plain-text item, linkifying any markdown links."""
-    return f'<p class="note">{linkify(esc(item["text"]))}</p>'
+    return f'<p class="note">{linkify(item["text"])}</p>'
 
 
 def render_items(items: list[dict]) -> str:
