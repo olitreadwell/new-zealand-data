@@ -21,6 +21,9 @@ which is dormant since March 2023. Format based on
 - Wayback Machine fallback links on entries that could not be archived,
   when `wayback-report.json` is present.
 - pytest suite in `tests/` covering the site builder.
+- API probes: `.github/workflows/api-probes.yml` runs `scripts/probe_apis.py`
+  weekly, GETs the API-ish endpoints listed in the README, and uploads
+  `api-probe-report.json` as an artifact.
 - Wayback Machine archiving: `.github/workflows/archive.yml` runs
   `scripts/archive_links.py` weekly, dedupes against the CDX index, and
   uploads `wayback-report.json` as an artifact.
