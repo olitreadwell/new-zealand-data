@@ -1,7 +1,7 @@
 name: CI
 
-# Validates the README structure and checks the site still builds on every
-# pull request and push to the default branches.
+# Validates the README structure, runs the test suite, and checks the site
+# still builds on every pull request and push to the default branches.
 
 on:
   pull_request:
@@ -34,6 +34,25 @@ jobs:
 
       - name: Build site
         run: python3 scripts/build_site.py
+
+  test:
+    name: Run test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: python3 -m pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python3 -m pytest -q
 
   lint-actions:
     name: Lint GitHub Actions workflows

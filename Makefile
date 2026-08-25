@@ -1,13 +1,16 @@
-.PHONY: check validate build linkcheck lint-actions
+.PHONY: check validate build test linkcheck lint-actions
 
 # One-command entry point: all checks a contributor or reviewer needs.
-check: validate build linkcheck lint-actions
+check: validate build test linkcheck lint-actions
 
 validate:
 	python3 scripts/validate_readme.py
 
 build:
 	python3 scripts/build_site.py
+
+test:
+	python3 -m pytest -q
 
 linkcheck:
 	@command -v lychee >/dev/null 2>&1 || { echo "lychee not installed. Install it: brew install lychee (see https://github.com/lycheeverse/lychee)"; exit 1; }

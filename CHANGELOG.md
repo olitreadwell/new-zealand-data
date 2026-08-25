@@ -9,6 +9,11 @@ which is dormant since March 2023. Format based on
 
 ### Added
 
+- Pytest test suite for the maintenance scripts: `tests/` covers the README
+  parser helpers in `scripts/build_site.py`, the checks in
+  `scripts/validate_readme.py`, and URL collection in
+  `scripts/archive_links.py`. `make test` runs it, `make check` includes it,
+  and a CI job runs it on every pull request.
 - Wayback Machine archiving: `.github/workflows/archive.yml` runs
   `scripts/archive_links.py` weekly, dedupes against the CDX index, and
   uploads `wayback-report.json` as an artifact.
