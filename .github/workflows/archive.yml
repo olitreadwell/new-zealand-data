@@ -1,0 +1,45 @@
+name: Weekly Wayback archive
+
+# Archives every link in README.md to the Internet Archive's Wayback Machine
+# once a week. Each link is checked against the CDX index first, so only
+# missing snapshots are re-saved. The per-URL report is uploaded as a
+# workflow artifact; nothing is committed back to the repo.
+#
+# Set WAYBACK_ACCESS_KEY / WAYBACK_SECRET_KEY as repository secrets to use
+# authenticated Save Page Now requests (higher rate limit). Without them the
+# job still works, just slower.
+
+on:
+  schedule:
+    # Mondays 19:00 UTC — Tuesday morning in New Zealand, after the Sunday link check.
+    - cron: "0 19 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    name: Archive README links
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Archive links
+        env:
+          WAYBACK_ACCESS_KEY: ${{ secrets.WAYBACK_ACCESS_KEY }}
+          WAYBACK_SECRET_KEY: ${{ secrets.WAYBACK_SECRET_KEY }}
+        run: python3 scripts/archive_links.py --limit 120 --delay 3
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayback-report
+          path: wayback-report.json
