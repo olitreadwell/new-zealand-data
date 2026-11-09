@@ -1,0 +1,2 @@
+# Single-file stdlib site generator; keeping the build pipeline together.
+scripts/build_site.py

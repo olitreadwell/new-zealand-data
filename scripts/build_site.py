@@ -6,6 +6,10 @@ self-contained index.html (search, dark mode, table of contents, entry
 cards) plus machine-readable exports into site/. Pure Python stdlib, no
 dependencies.
 
+Entries carry the type/access/status tags from the README's Legend section.
+They are parsed into chips on the page, a ``tags`` field in data.json, and a
+tags column in data.csv.
+
 Outputs:
     site/index.html      - the browsable site
     site/data.json       - structured copy of the list
@@ -46,6 +50,20 @@ GITHUB_README_URL = "https://github.com/olitreadwell/new-zealand-data/blob/main/
 LINK_RE = re.compile(r"\[([^\]]+)\] ?\(([^)]+)\)")
 DESC_SEP_RE = re.compile(r"^[-–—:]\s*")
 
+# Entry tags, written in the README between the link and the description:
+#   - [Name](url) - Data - Open - description
+#   - [Name](url) - API - Key - Legacy - description
+TAG_TYPE = ("API", "Data", "Portal", "Register", "Docs")
+TAG_ACCESS = ("Open", "Key", "Login", "Paid")
+TAG_STATUS = ("Legacy", "Archived")
+TAG_RE = re.compile(
+    r"^(?P<type>API|Data|Portal|Register|Docs)"
+    r"(?:\s+-\s+(?P<access>Open|Key|Login|Paid))?"
+    r"(?:\s+-\s+(?P<status>Legacy|Archived))?"
+    r"(?:\s+-\s+(?P<desc>.*))?$",
+    re.DOTALL,
+)
+
 # Sections that are meta content, rendered at the bottom of the page rather
 # than inside the category they appear under in the README.
 META_SECTIONS = {"Help wanted", "References and Attributions"}
@@ -82,6 +100,21 @@ def linkify(text: str) -> str:
     return "".join(parts)
 
 
+def split_entry_tags(rest: str) -> tuple[list[str], str | None]:
+    """Split leading type/access/status tags off an entry description."""
+    if not rest:
+        return [], None
+    match = TAG_RE.match(rest)
+    if not match:
+        return [], rest
+    tags = [match.group("type")]
+    for group in ("access", "status"):
+        if match.group(group):
+            tags.append(match.group(group))
+    desc = (match.group("desc") or "").strip()
+    return tags, desc or None
+
+
 def parse_bullet(line: str) -> dict:
     """Parse a markdown bullet into an item dict."""
     stripped = line.lstrip(" \t")
@@ -95,11 +128,13 @@ def parse_bullet(line: str) -> dict:
             rest = DESC_SEP_RE.sub("", body[match.end():].strip())
             if rest in {".", ":", "-", "–", "—"}:
                 rest = ""
+            tags, desc = split_entry_tags(rest.replace("`", ""))
             return {
                 "type": "entry",
                 "name": name,
                 "url": url,
-                "desc": rest or None,
+                "tags": tags,
+                "desc": desc,
                 "level": level,
             }
     return {"type": "text", "text": body.strip(), "level": level, "bullet": True}
@@ -112,9 +147,16 @@ def parse_readme(text: str) -> dict:
     sections: list[dict] = []
     current: dict | None = None
     current_sub: dict | None = None
+    in_code_block = False
 
     for raw in text.splitlines():
         line = raw.rstrip()
+        if line.strip().startswith("```"):
+            # Fenced code blocks hold examples, not entries.
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
         if not line.strip() or line.startswith("[!["):
             continue
         if line.startswith("# "):
@@ -168,6 +210,7 @@ def collect_search(items: list[dict]) -> list[str]:
     for item in items:
         if item["type"] == "entry":
             parts.append(item["name"])
+            parts.extend(item.get("tags", []))
             if item["desc"]:
                 parts.append(item["desc"])
         else:
@@ -176,16 +219,20 @@ def collect_search(items: list[dict]) -> list[str]:
 
 
 def render_entry(item: dict) -> str:
-    """Render a single entry line."""
+    """Render a single entry line, with its type/access/status tags as chips."""
     indent = item["level"] * 18
     style = f' style="padding-left:{indent}px"' if indent else ""
     name = esc(item["name"])
     url = esc(item["url"])
+    chips = "".join(
+        f'<span class="tag tag-{esc(tag.lower())}">{esc(tag)}</span>'
+        for tag in item.get("tags", [])
+    )
     desc = f'<span class="desc">{esc(item["desc"])}</span>' if item["desc"] else ""
     return (
         f'<div class="entry"{style}>'
         f'<a class="link" href="{url}" target="_blank" rel="noopener">{name}</a>'
-        f"{desc}</div>"
+        f"{chips}{desc}</div>"
     )
 
 
@@ -256,6 +303,7 @@ def flatten(doc: dict) -> list[dict]:
                         "name": item["name"],
                         "url": item["url"],
                         "description": item["desc"] or "",
+                        "tags": " ".join(item.get("tags", [])),
                         "category": section["name"],
                     }
                 )
@@ -271,7 +319,7 @@ def csv_encode(value: str) -> str:
 
 def render_csv(rows: list[dict]) -> str:
     """Render the list as CSV."""
-    header = ["name", "url", "description", "category"]
+    header = ["name", "url", "description", "tags", "category"]
     lines = [",".join(header)]
     for row in rows:
         lines.append(",".join(csv_encode(row[k]) for k in header))
@@ -286,7 +334,12 @@ def to_json(doc: dict) -> dict:
         for item in section["items"]:
             if item["type"] == "entry":
                 items.append(
-                    {"name": item["name"], "url": item["url"], "description": item["desc"]}
+                    {
+                        "name": item["name"],
+                        "url": item["url"],
+                        "description": item["desc"],
+                        "tags": item.get("tags", []),
+                    }
                 )
             else:
                 items.append({"text": item["text"]})
@@ -467,6 +520,21 @@ h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--accent); }
 .entry .link:hover { text-decoration: underline; }
 .entry .desc { color: var(--muted); font-size: 0.9rem; }
 .entry .desc::before { content: "\\2013  "; color: var(--border); }
+.entry .tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+.entry .tag-data, .entry .tag-api { color: var(--accent); border-color: var(--accent); }
+.entry .tag-legacy, .entry .tag-archived { color: #b45309; border-color: #b45309; }
 .note {
   color: var(--muted);
   font-size: 0.92rem;

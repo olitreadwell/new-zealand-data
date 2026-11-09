@@ -3,8 +3,9 @@
 
 Reuses the same parser as scripts/build_site.py and flags issues that
 would break the site or the link check: malformed links, duplicate URLs,
-relative or fragment-only URLs, and inconsistent bullet nesting. Runs in
-CI on every pull request.
+relative or fragment-only URLs, inconsistent bullet nesting, and entries
+missing the type and access tags from the README legend. Runs in CI on every
+pull request.
 
 Usage:
     python3 scripts/validate_readme.py
@@ -17,7 +18,13 @@ import sys
 from collections import Counter
 from urllib.parse import urlparse
 
-from build_site import README_PATH, parse_bullet, parse_readme
+from build_site import (
+    README_PATH,
+    TAG_ACCESS,
+    TAG_TYPE,
+    parse_bullet,
+    parse_readme,
+)
 
 LINK_RE = re.compile(r"\[([^\]]+)\] ?\(([^)]+)\)")
 
@@ -52,13 +59,27 @@ def main() -> int:
             errors.append(f"duplicate link ({count}x): {url}")
 
     prev_level = -1
+    in_code_block = False
     for lineno, raw in enumerate(text.splitlines(), 1):
         stripped = raw.lstrip(" \t")
-        if not stripped.startswith("- "):
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block or not stripped.startswith("- "):
             continue
         if stripped.startswith("- [") and not LINK_RE.match(stripped[2:]):
             errors.append(f"line {lineno}: malformed link: {raw.strip()}")
         item = parse_bullet(raw)
+        if item["type"] == "entry" and not item["tags"]:
+            errors.append(
+                f"line {lineno}: entry '{item['name']}' has no tags; expected "
+                f"one of {', '.join(TAG_TYPE)}"
+            )
+        if item["type"] == "entry" and item["tags"] and len(item["tags"]) < 2:
+            errors.append(
+                f"line {lineno}: entry '{item['name']}' has no access tag; "
+                f"expected one of {', '.join(TAG_ACCESS)}"
+            )
         if item["level"] > prev_level + 1:
             errors.append(f"line {lineno}: bullet jumps {prev_level} -> {item['level']} levels")
         prev_level = item["level"]
